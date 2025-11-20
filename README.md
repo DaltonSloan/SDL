@@ -20,9 +20,21 @@ pip install -r requirements.txt
 ```
 
 ## Preparing the dataset
-1. Place your cleaned class folders (each subdirectory = class name) under `dataset/classes/`.
-2. (Optional) Run `python make_classes_json.py` to regenerate `classes.json`, which maps numeric IDs to class names.
-3. Create stratified train/val/test splits:
+### Scrape & convert raw SVGs
+1. **Scrape from Radica/GetVecta**
+   - `python getvecta_svgs/scrape_all_stencils.py` is the most reliable full-site crawler; it walks every stencil page under `symbols.radicasoftware.com` and saves SVGs into `getvecta_svgs/`.
+   - Older, more targeted options (`python scrape_symbols.py`, `python scrape_getvecta.py`) remain for quick runs but the all-stencils script should be your default.
+   All scrapers deposit untouched SVGs into `getvecta_svgs/`.
+2. **Convert + augment to PNGs**  
+   - Use `bash svg_pipeline.sh` for the full pipeline: converts every SVG via Inkscape into multiple resolutions (`dataset/processed/png`) and runs ImageMagick augmentations into `dataset/processed/aug`. Requires Inkscape CLI + ImageMagick installed locally.
+   - For a lightweight CairoSVG conversion, run `python svg_to_png.py` to place PNGs in `dataset/png/`.
+3. **Organize into class folders**  
+   - `python organize_classes.py` walks the processed PNGs (both base and augmented) and copies them into `dataset/classes/<class_name>/image.png` based on the filename pattern.
+   - Run `python classes_cleanup.py` afterward to drop derivative folders (blur/noise/etc.) that shouldn't be treated as real classes.
+
+### Generate metadata & splits
+1. Run `python make_classes_json.py` to regenerate `classes.json`, which maps numeric IDs to class names.
+2. Create stratified train/val/test splits:
    ```bash
    python make_splits.py
    ```
@@ -41,34 +53,39 @@ Follow this order if you want a verbose roadmap from a blank checkout to a train
    ```
    This ensures `torch`, `torchvision`, `pillow`, `numpy`, `scikit-learn`, and `tqdm` match the versions used during development.
 
-2. **Organize/clean raw assets (optional)**  
-   Use helper scripts (`classes_cleanup.py`, `organize_classes.py`, `svg_pipeline.sh`, etc.) to make sure every class lives under `dataset/classes/<class_name>/image.png`.  These scripts are optional but save time when wrangling scraped SVGs.
+2. **Scrape & prepare raw assets**  
+   - Run `python getvecta_svgs/scrape_all_stencils.py` (recommended) to download every SVG stencil into `getvecta_svgs/`. Legacy single-endpoint scrapers (`scrape_symbols.py`, `scrape_getvecta.py`) are available if you only need subsets.
+   - Convert to PNG (with augmentations) using `bash svg_pipeline.sh` or the simpler `python svg_to_png.py`.
+   - Organize files into `dataset/classes/<class_name>/` via `python organize_classes.py`, then clean unwanted pseudo-classes with `python classes_cleanup.py`.
 
-3. **Generate class metadata**  
+3. **Verify folder structure**  
+   Manually spot-check `dataset/classes` to ensure each symbol class has its own directory of PNGs. This structure feeds every later step, so fix naming issues now.
+
+4. **Generate class metadata**  
    ```
    python make_classes_json.py
    ```
    This produces `classes.json`, a numeric ID → class name map consumed by `predict.py` and any downstream tooling.
 
-4. **Build train/val/test splits**  
+5. **Build train/val/test splits**  
    ```
    python make_splits.py
    ```
    The script copies files from `dataset/classes` into `dataset/splits/{train,val,test}` with consistent ratios so that TorchVision's `ImageFolder` loaders work out of the box.
 
-5. **Train the model**  
+6. **Train the model**  
    ```
    python train_model.py
    ```
    Monitor the epoch logs for convergence. At the end you should see `Saved model → symbol_classifier.pth`.
 
-6. **Evaluate on the held-out test set**  
+7. **Evaluate on the held-out test set**  
    ```
    python eval.py
    ```
    Requires the weights from Step 5. Prints a detailed classification report plus confusion matrix to validate performance.
 
-7. **Run ad-hoc predictions (optional sanity check)**  
+8. **Run ad-hoc predictions (optional sanity check)**  
    ```
    python predict.py path/to/image.png
    ```
