@@ -1,0 +1,70 @@
+[
+  {
+    "name": "A",
+    "connections": [
+      "B",
+      "E"
+    ],
+    "center": {
+      "X": 35,
+      "Y": 12
+    }
+  },
+  {
+    "name": "B",
+    "connections": [
+      "C"
+    ],
+    "center": {
+      "X": 22,
+      "Y": 19
+    }
+  },
+  {
+    "name": "C",
+    "connections": [
+      "G"
+    ],
+    "center": {
+      "X": 29,
+      "Y": 26
+    }
+  },
+  {
+    "name": "D",
+    "connections": [
+      "F",
+      "G"
+    ],
+    "center": {
+      "X": 40,
+      "Y": 26
+    }
+  },
+  {
+    "name": "E",
+    "connections": [
+      "G"
+    ],
+    "center": {
+      "X": 34,
+      "Y": 27
+    }
+  },
+  {
+    "name": "F",
+    "connections": [],
+    "center": {
+      "X": 52,
+      "Y": 27
+    }
+  },
+  {
+    "name": "G",
+    "connections": [],
+    "center": {
+      "X": 35,
+      "Y": 33
+    }
+  }
+]
