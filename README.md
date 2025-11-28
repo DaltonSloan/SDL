@@ -42,6 +42,19 @@ pip install -r requirements.txt
 
 > **Note:** The raw dataset, intermediate SVG dumps, and trained weights are ignored via `.gitignore`.  Each collaborator should regenerate them locally.
 
+### 📦 YOLO SLD Dataset (Download)
+
+Download the full dataset (images + labels):
+
+🔗 https://drive.google.com/uc?id=YOUR_FILE_ID
+
+Place it in your project directory and unzip:
+
+```bash
+wget -O yolo_sld_2.zip "https://drive.google.com/uc?id=1mdfe9nqis8i8UCKmTsOzKYR4SbfSLBdP&export=download"
+unzip -q yolo_sld_2.zip
+```
+
 ## Step-by-step workflow
 Follow this order if you want a verbose roadmap from a blank checkout to a trained model:
 
@@ -117,6 +130,23 @@ This will print a classification report and confusion matrix. Ensure `symbol_cla
 ```bash
 python predict.py path/to/image.png
 ```
+
+## Colab training (2-class, GPU)
+Use `colab_yolo_2class.ipynb` to train/evaluate YOLOv8 on the reduced two-class dataset (transformer, breaker) on a GPU (A100 recommended):
+
+1. The repository already contains `yolo_sld_2.zip` (two-class dataset). Open the notebook in Colab, upload that zip, and run the install + upload cells. If you regenerate the dataset, re-zip it:
+   ```bash
+   zip -r yolo_sld_2.zip yolo_sld_2
+   ```
+2. Train:
+   - Baseline (fast): `yolov8s` at 1024px, batch 16, 50 epochs.
+   - High-accuracy (A100): `yolov8m` or `yolov8l` at 1280–1408px, batch 20–32, 120–180 epochs, with strong aug (`mosaic=1.0`, `mixup=0.1`, `copy_paste=0.1`, `cos_lr=True`, `close_mosaic=10`).
+3. Validate/test: uses the held-out splits; metrics are printed after training.
+4. Inference:
+   - Direct: `yolo detect predict model=... data=yolo_sld_2/data.yaml imgsz=1024 conf=0.6 iou=0.45`
+   - Tiled (for large SLDs): use the tiling section in the notebook to split the SLD into 1280–1408 tiles, then run predict on tiles to reduce duplicate/overlapping detections and improve small-object recall. Keep `conf` high (e.g., 0.6) to hide low-confidence boxes.
+
+Outputs and weights are saved under `/content/runs/detect/<run_name>/`.
 
 ## Repository structure
 ```

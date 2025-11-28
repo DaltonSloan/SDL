@@ -21,6 +21,7 @@ runs/
 *.onnx
 *.log
 symbol_classifier.pth
+yolo_sld_2/
 
 # Datasets and raw assets (regenerate locally)
 dataset/
@@ -28,6 +29,7 @@ ALL_SVGS/
 all_svg_symbols/
 getvecta_svgs/
 yolo_sld/
+*.zip
 
 # CLI tooling
 .idea/

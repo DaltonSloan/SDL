@@ -1,4 +1,3 @@
-import os
 import shutil
 from pathlib import Path
 from sklearn.model_selection import train_test_split
@@ -8,7 +7,13 @@ OUT = Path("dataset/splits")
 
 # Directories to create
 for d in ["train", "val", "test"]:
-    (OUT / d).mkdir(parents=True, exist_ok=True)
+    subset_dir = OUT / d
+    if subset_dir.exists():
+        # clear previous contents to avoid stale files leaking across reruns
+        for item in subset_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+    subset_dir.mkdir(parents=True, exist_ok=True)
 
 # Folders that are NOT real symbol classes
 BAD = {"1024"}  # add more if needed
@@ -21,7 +26,7 @@ for cls in SRC.iterdir():
         continue
 
     images = list(cls.glob("*.png"))
-    
+
     if len(images) < 5:
         print(f"[SKIP] {cls.name} (too few images: {len(images)})")
         continue
@@ -43,4 +48,6 @@ for cls in SRC.iterdir():
         for img in subset:
             shutil.copy(img, dest / img.name)
 
-    print(f"[OK] {cls.name}: {len(train_imgs)} train, {len(val_imgs)} val, {len(test_imgs)} test")
+    print(
+        f"[OK] {cls.name}: {len(train_imgs)} train, {len(val_imgs)} val, {len(test_imgs)} test"
+    )

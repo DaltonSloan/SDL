@@ -1,29 +1,36 @@
+import os
 import torch
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, classification_report
-import numpy as np
 from tqdm import tqdm
-import os
 
 DATASET_DIR = "dataset/splits"
-DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+DEVICE = (
+    "mps"
+    if torch.backends.mps.is_available()
+    else "cuda"
+    if torch.cuda.is_available()
+    else "cpu"
+)
 MODEL_PATH = "symbol_classifier.pth"
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 print("Using device:", DEVICE)
 
-# transformations (same as training!)
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5]),
-])
+transform = transforms.Compose(
+    [
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+    ]
+)
 
-# Load datasets
 test_ds = datasets.ImageFolder(os.path.join(DATASET_DIR, "test"), transform)
 test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
 
-# Load model
 model = models.resnet18(weights=None)
 model.fc = torch.nn.Linear(model.fc.in_features, len(test_ds.classes))
 model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
@@ -38,12 +45,11 @@ with torch.no_grad():
         imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
 
         outputs = model(imgs)
-        _, preds = torch.max(outputs, 1)
+        preds = outputs.argmax(dim=1)
 
         all_preds.extend(preds.cpu().numpy())
         all_labels.extend(labels.cpu().numpy())
 
-# Compute results
 print("\n=== Classification Report ===")
 print(classification_report(all_labels, all_preds, target_names=test_ds.classes))
 
