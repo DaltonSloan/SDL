@@ -4,10 +4,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from collections import deque
 import os
 
-# --- Configuration ---
 SQUARE_SIZE = 16
-
-# --- Data Structures ---
 
 class Point:
     def __init__(self, x, y):
@@ -23,11 +20,11 @@ class Point:
     def __repr__(self):
         return f"({self.x}, {self.y})"
 
-class GreenBlock:
+class Glyph:
     def __init__(self, id, points):
         self.id = id
         self.name = ""
-        self.points = points # List of Point
+        self.points = points
         self.center = self._calculate_center()
         
     def _calculate_center(self):
@@ -38,8 +35,6 @@ class GreenBlock:
         min_y = min(p.y for p in self.points)
         max_y = max(p.y for p in self.points)
         return Point((min_x + max_x) // 2, (min_y + max_y) // 2)
-
-# --- Helper Functions ---
 
 def is_green(r, g, b):
     return g > r and g > b
@@ -56,40 +51,32 @@ def generate_name(n):
 
 # --- Main Logic ---
 
-def solve_puzzle(image_path):
-    print(f"Loading {image_path}...")
+def find_connections(json_path, image_path):
+    print(f"Loading grid data from {json_path}...")
     try:
-        img = Image.open(image_path).convert('RGB')
+        with open(json_path, 'r') as f:
+            data = json.load(f)
     except FileNotFoundError:
-        print(f"Error: {image_path} not found.")
+        print(f"Error: {json_path} not found.")
         return
 
-    # Derive output paths based on input image location
-    input_dir = os.path.dirname(image_path)
-    json_output_path = os.path.join(input_dir, "graph.json")
-    image_output_path = os.path.join(input_dir, "output.png")
-
-    width, height = img.size
-    pixels = img.load()
-    
-    grid_w = width // SQUARE_SIZE
-    grid_h = height // SQUARE_SIZE
+    # Parse CompressedImage struct
+    grid_w = data["GridWidth"]
+    grid_h = data["GridHeight"]
+    square_size = data["SquareSize"]
+    squares = data["Squares"]
     
     print(f"Grid size: {grid_w}x{grid_h}")
     
-    # 1. Parse Grid
-    # We store the grid as a list of lists of (r, g, b) tuples
+    # Reconstruct grid for logic
+    # grid[y][x] = (r, g, b)
     grid = [[(0,0,0) for _ in range(grid_w)] for _ in range(grid_h)]
-    
     for y in range(grid_h):
         for x in range(grid_w):
-            sx = x * SQUARE_SIZE + SQUARE_SIZE // 2
-            sy = y * SQUARE_SIZE + SQUARE_SIZE // 2
-            if sx >= width: sx = width - 1
-            if sy >= height: sy = height - 1
-            grid[y][x] = pixels[sx, sy]
+            p = squares[y][x]
+            grid[y][x] = (p["R"], p["G"], p["B"])
 
-    # 2. Identify Green Blocks
+    # 2. Identify Glyphs
     visited = set()
     blocks = []
     dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
@@ -122,9 +109,9 @@ def solve_puzzle(image_path):
                                     visited.add(np)
                                     queue.append(np)
                 
-                blocks.append(GreenBlock(len(blocks), block_points))
+                blocks.append(Glyph(len(blocks), block_points))
 
-    print(f"Found {len(blocks)} green blocks.")
+    print(f"Found {len(blocks)} Glyphs.")
 
     # 3. Sort Blocks (Top-Left to Bottom-Right)
     # Sort by Y then X of center
@@ -199,23 +186,35 @@ def solve_puzzle(image_path):
         })
 
     # 6. Output JSON
+    # Derive output paths based on input image location (to keep it consistent)
+    input_dir = os.path.dirname(image_path)
+    json_output_path = os.path.join(input_dir, "graph.json")
+    image_output_path = os.path.join(input_dir, "output.png")
+
     with open(json_output_path, 'w') as f:
         json.dump(graph_output, f, indent=2)
     print(f"Saved graph to {json_output_path}")
 
     # 7. Visualize
-    visualize(img, blocks, graph_output, image_output_path)
+    print(f"Loading original image {image_path} for visualization...")
+    try:
+        img = Image.open(image_path).convert('RGB')
+    except FileNotFoundError:
+        print(f"Error: {image_path} not found.")
+        return
 
-def visualize(img, blocks, graph_data, output_path):
+    visualize(img, blocks, graph_output, image_output_path, square_size)
+
+def visualize(img, blocks, graph_data, output_path, square_size):
     # Create mask for highlights
     mask = Image.new('L', img.size, 0)
     draw_mask = ImageDraw.Draw(mask)
     
     for block in blocks:
         for p in block.points:
-            px = p.x * SQUARE_SIZE
-            py = p.y * SQUARE_SIZE
-            draw_mask.rectangle([px, py, px + SQUARE_SIZE - 1, py + SQUARE_SIZE - 1], fill=255)
+            px = p.x * square_size
+            py = p.y * square_size
+            draw_mask.rectangle([px, py, px + square_size - 1, py + square_size - 1], fill=255)
             
     edges = mask.filter(ImageFilter.FIND_EDGES)
     edges = edges.point(lambda p: 255 if p > 100 else 0)
@@ -226,9 +225,9 @@ def visualize(img, blocks, graph_data, output_path):
     # Fill blocks
     for block in blocks:
         for p in block.points:
-            px = p.x * SQUARE_SIZE
-            py = p.y * SQUARE_SIZE
-            draw_overlay.rectangle([px, py, px + SQUARE_SIZE, py + SQUARE_SIZE], fill=(0, 0, 255, 100))
+            px = p.x * square_size
+            py = p.y * square_size
+            draw_overlay.rectangle([px, py, px + square_size, py + square_size], fill=(0, 0, 255, 100))
             
     # Draw edges
     solid_blue = Image.new('RGBA', img.size, (0, 0, 255, 255))
@@ -254,8 +253,8 @@ def visualize(img, blocks, graph_data, output_path):
         name = node['name']
         center = node['center']
         
-        cx = center['X'] * SQUARE_SIZE + SQUARE_SIZE // 2
-        cy = center['Y'] * SQUARE_SIZE + SQUARE_SIZE // 2
+        cx = center['X'] * square_size + square_size // 2
+        cy = center['Y'] * square_size + square_size // 2
         
         bbox = draw.textbbox((0, 0), name, font=font)
         text_w = bbox[2] - bbox[0]
@@ -277,10 +276,10 @@ def visualize(img, blocks, graph_data, output_path):
 
 import argparse
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Solve the Green/Red square puzzle.")
-    parser.add_argument("image_path", help="Path to the input image")
+    parser = argparse.ArgumentParser(description="Find connections from grid JSON.")
+    parser.add_argument("json_path", help="Path to the input grid JSON")
+    parser.add_argument("image_path", help="Path to the original image (for visualization)")
     args = parser.parse_args()
     
-    solve_puzzle(args.image_path)
+    find_connections(args.json_path, args.image_path)
