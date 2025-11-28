@@ -41,6 +41,7 @@ def is_red(r, g, b):
     return r > g and r > b
 
 def generate_name(n):
+    # TODO: Replace with actual SLD symbol names with number suffix
     # A, B, ..., Z, AA, AB, ...
     letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     if n < 26:
@@ -65,6 +66,7 @@ def find_connections(json_path):
     print(f"Grid size: {grid_w}x{grid_h}")
     
     # Reconstruct grid matrix
+    # TODO: will be passed as input
     # grid[y][x] = (r, g, b)
     grid = [[(0,0,0) for _ in range(grid_w)] for _ in range(grid_h)]
     for y in range(grid_h):
@@ -213,7 +215,7 @@ def find_connections(json_path):
 
     visualize(img, glyphs, graph_output, image_output_path, square_size)
 
-def visualize(img, glyphs, graph_data, output_path, square_size):
+def visualize(img: Image, glyphs: list[Glyph], graph_data: list[dict], output_path: str, square_size: int):
     # Create mask for highlights
     mask = Image.new('L', img.size, 0)
     draw_mask = ImageDraw.Draw(mask)
