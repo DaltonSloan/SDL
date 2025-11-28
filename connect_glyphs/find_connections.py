@@ -76,7 +76,7 @@ def find_connections(json_path):
 
     # 2. Identify Glyphs
     visited = set()
-    blocks = []
+    glyphs = []
     dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     
     for y in range(grid_h):
@@ -87,14 +87,14 @@ def find_connections(json_path):
             
             r, g, b = grid[y][x]
             if is_green(r, g, b):
-                # Found new block
-                block_points = []
+                # Found new glyph
+                glyph_points = []
                 queue = deque([p])
                 visited.add(p)
                 
                 while queue:
                     curr = queue.popleft()
-                    block_points.append(curr)
+                    glyph_points.append(curr)
                     
                     for dx, dy in dirs:
                         nx, ny = curr.x + dx, curr.y + dy
@@ -107,29 +107,29 @@ def find_connections(json_path):
                                     visited.add(np)
                                     queue.append(np)
                 
-                blocks.append(Glyph(len(blocks), block_points))
+                glyphs.append(Glyph(len(glyphs), glyph_points))
 
-    print(f"Found {len(blocks)} Glyphs.")
+    print(f"Found {len(glyphs)} Glyphs.")
 
-    # 3. Sort Blocks (Top-Left to Bottom-Right)
+    # 3. Sort Glyphs (Top-Left to Bottom-Right)
     # Sort by Y then X of center
-    blocks.sort(key=lambda b: (b.center.y, b.center.x))
+    glyphs.sort(key=lambda glyph: (glyph.center.y, glyph.center.x))
     
     # 4. Assign Names
-    for i, block in enumerate(blocks):
-        block.id = i
-        block.name = generate_name(i)
+    for i, glyph in enumerate(glyphs):
+        glyph.id = i
+        glyph.name = generate_name(i)
 
     # 5. Find Connections
-    # Map point to block ID
-    point_to_block = {}
-    for block in blocks:
-        for p in block.points:
-            point_to_block[p] = block.id
+    # Map point to glyph ID
+    point_to_glyph = {}
+    for glyph in glyphs:
+        for p in glyph.points:
+            point_to_glyph[p] = glyph.id
             
     graph_output = []
     
-    for block in blocks:
+    for glyph in glyphs:
         connections = set()
         
         # BFS from boundary Red squares
@@ -137,7 +137,7 @@ def find_connections(json_path):
         visited_red = set()
         
         # Initialize with adjacent reds
-        for p in block.points:
+        for p in glyph.points:
             for dx, dy in dirs:
                 nx, ny = p.x + dx, p.y + dy
                 if 0 <= nx < grid_w and 0 <= ny < grid_h:
@@ -158,9 +158,9 @@ def find_connections(json_path):
                     
                     # Hit a Green Square?
                     if is_green(nr, ng, nb):
-                        if np in point_to_block:
-                            target_id = point_to_block[np]
-                            if target_id != block.id:
+                        if np in point_to_glyph:
+                            target_id = point_to_glyph[np]
+                            if target_id != glyph.id:
                                 connections.add(target_id)
                         continue # Don't traverse through Green
                     
@@ -172,15 +172,15 @@ def find_connections(json_path):
         # Filter connections (One Way: Target > Source)
         valid_connections = []
         for target_id in connections:
-            if target_id > block.id:
-                valid_connections.append(blocks[target_id].name)
+            if target_id > glyph.id:
+                valid_connections.append(glyphs[target_id].name)
         
         valid_connections.sort()
         
         graph_output.append({
-            "name": block.name,
+            "name": glyph.name,
             "connections": valid_connections,
-            "center": {"X": block.center.x, "Y": block.center.y}
+            "center": {"X": glyph.center.x, "Y": glyph.center.y}
         })
 
     # 6. Output JSON
@@ -211,15 +211,15 @@ def find_connections(json_path):
                     py = y * square_size + dy
                     pixels[px, py] = (r, g, b)
 
-    visualize(img, blocks, graph_output, image_output_path, square_size)
+    visualize(img, glyphs, graph_output, image_output_path, square_size)
 
-def visualize(img, blocks, graph_data, output_path, square_size):
+def visualize(img, glyphs, graph_data, output_path, square_size):
     # Create mask for highlights
     mask = Image.new('L', img.size, 0)
     draw_mask = ImageDraw.Draw(mask)
     
-    for block in blocks:
-        for p in block.points:
+    for glyph in glyphs:
+        for p in glyph.points:
             px = p.x * square_size
             py = p.y * square_size
             draw_mask.rectangle([px, py, px + square_size - 1, py + square_size - 1], fill=255)
@@ -230,9 +230,9 @@ def visualize(img, blocks, graph_data, output_path, square_size):
     overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
     draw_overlay = ImageDraw.Draw(overlay)
     
-    # Fill blocks
-    for block in blocks:
-        for p in block.points:
+    # Fill glyphs
+    for glyph in glyphs:
+        for p in glyph.points:
             px = p.x * square_size
             py = p.y * square_size
             draw_overlay.rectangle([px, py, px + square_size, py + square_size], fill=(0, 0, 255, 100))
@@ -251,10 +251,7 @@ def visualize(img, blocks, graph_data, output_path, square_size):
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
     except IOError:
         print("Warning: DejaVuSans-Bold.ttf not found, falling back to default font.")
-        try:
-            font = ImageFont.truetype("DejaVuSans.ttf", size=50)
-        except IOError:
-            font = ImageFont.load_default(size=50)
+        font = ImageFont.load_default(size=50)
              
 
     for node in graph_data:
