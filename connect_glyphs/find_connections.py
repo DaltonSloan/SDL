@@ -4,8 +4,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from collections import deque
 import os
 
-SQUARE_SIZE = 16
-
 class Point:
     def __init__(self, x, y):
         self.x = x
@@ -51,7 +49,7 @@ def generate_name(n):
 
 # --- Main Logic ---
 
-def find_connections(json_path, image_path):
+def find_connections(json_path):
     print(f"Loading grid data from {json_path}...")
     try:
         with open(json_path, 'r') as f:
@@ -68,7 +66,7 @@ def find_connections(json_path, image_path):
     
     print(f"Grid size: {grid_w}x{grid_h}")
     
-    # Reconstruct grid for logic
+    # Reconstruct grid matrix
     # grid[y][x] = (r, g, b)
     grid = [[(0,0,0) for _ in range(grid_w)] for _ in range(grid_h)]
     for y in range(grid_h):
@@ -186,22 +184,32 @@ def find_connections(json_path, image_path):
         })
 
     # 6. Output JSON
-    # Derive output paths based on input image location (to keep it consistent)
-    input_dir = os.path.dirname(image_path)
-    json_output_path = os.path.join(input_dir, "graph.json")
-    image_output_path = os.path.join(input_dir, "output.png")
+    json_output_path = "connect_glyphs/output/graph.json"
+    image_output_path = "connect_glyphs/output/output.png"
+
+    os.makedirs(os.path.dirname(json_output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(image_output_path), exist_ok=True)
 
     with open(json_output_path, 'w') as f:
         json.dump(graph_output, f, indent=2)
     print(f"Saved graph to {json_output_path}")
 
-    # 7. Visualize
-    print(f"Loading original image {image_path} for visualization...")
-    try:
-        img = Image.open(image_path).convert('RGB')
-    except FileNotFoundError:
-        print(f"Error: {image_path} not found.")
-        return
+    # Visualize results
+    print(f"Reconstructing image from grid data for visualization...")
+    
+    # Reconstruct image from grid
+    img = Image.new('RGB', (grid_w * square_size, grid_h * square_size))
+    pixels = img.load()
+    
+    for y in range(grid_h):
+        for x in range(grid_w):
+            r, g, b = grid[y][x]
+            # Fill the square
+            for dy in range(square_size):
+                for dx in range(square_size):
+                    px = x * square_size + dx
+                    py = y * square_size + dy
+                    pixels[px, py] = (r, g, b)
 
     visualize(img, blocks, graph_output, image_output_path, square_size)
 
@@ -240,14 +248,14 @@ def visualize(img, blocks, graph_data, output_path, square_size):
     # Draw Labels
     draw = ImageDraw.Draw(result)
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
     except IOError:
-        # Fallback to default if custom font not found
-        # Load a larger default font if possible, or just default
+        print("Warning: DejaVuSans-Bold.ttf not found, falling back to default font.")
         try:
-             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
-        except:
-             font = ImageFont.load_default()
+            font = ImageFont.truetype("DejaVuSans.ttf", size=50)
+        except IOError:
+            font = ImageFont.load_default(size=50)
+             
 
     for node in graph_data:
         name = node['name']
@@ -278,8 +286,7 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Find connections from grid JSON.")
-    parser.add_argument("json_path", help="Path to the input grid JSON")
-    parser.add_argument("image_path", help="Path to the original image (for visualization)")
+    parser.add_argument("json_path", help="Path to the CompressedImage JSON")
     args = parser.parse_args()
     
-    find_connections(args.json_path, args.image_path)
+    find_connections(args.json_path)
