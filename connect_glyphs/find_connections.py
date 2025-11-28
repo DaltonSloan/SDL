@@ -47,8 +47,6 @@ def generate_name(n):
         return letters[n]
     return letters[n // 26 - 1] + letters[n % 26]
 
-# --- Main Logic ---
-
 def find_connections(json_path):
     print(f"Loading grid data from {json_path}...")
     try:
@@ -74,11 +72,11 @@ def find_connections(json_path):
             p = squares[y][x]
             grid[y][x] = (p["R"], p["G"], p["B"])
 
-    # 2. Identify Glyphs
     visited = set()
     glyphs = []
     dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
     
+    # Find Glyphs
     for y in range(grid_h):
         for x in range(grid_w):
             p = Point(x, y)
@@ -111,16 +109,17 @@ def find_connections(json_path):
 
     print(f"Found {len(glyphs)} Glyphs.")
 
-    # 3. Sort Glyphs (Top-Left to Bottom-Right)
+    # Sort Glyphs (Top-Left to Bottom-Right)
     # Sort by Y then X of center
     glyphs.sort(key=lambda glyph: (glyph.center.y, glyph.center.x))
     
-    # 4. Assign Names
+    # Assign Names
+    # TODO replace with actual SLD symbol names with number suffix
     for i, glyph in enumerate(glyphs):
         glyph.id = i
         glyph.name = generate_name(i)
 
-    # 5. Find Connections
+    # Find Connections
     # Map point to glyph ID
     point_to_glyph = {}
     for glyph in glyphs:
@@ -183,7 +182,7 @@ def find_connections(json_path):
             "center": {"X": glyph.center.x, "Y": glyph.center.y}
         })
 
-    # 6. Output JSON
+    # Output JSON
     json_output_path = "connect_glyphs/output/graph.json"
     image_output_path = "connect_glyphs/output/output.png"
 
@@ -197,7 +196,8 @@ def find_connections(json_path):
     # Visualize results
     print(f"Reconstructing image from grid data for visualization...")
     
-    # Reconstruct image from grid
+    # Reconstruct image from grid for visualization output
+    # TODO: Maybe pass original image to avoid reconstructing
     img = Image.new('RGB', (grid_w * square_size, grid_h * square_size))
     pixels = img.load()
     
